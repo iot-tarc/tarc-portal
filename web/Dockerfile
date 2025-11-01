@@ -5,7 +5,9 @@ WORKDIR /app
 
 # Argumento para URL da API (usado no build-time)
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG VITE_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copiar arquivos de dependências
 COPY package*.json ./
@@ -16,34 +18,29 @@ RUN npm ci --legacy-peer-deps
 # Copiar código fonte
 COPY . .
 
-# Build da aplicação
+# Build da aplicação Vite
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS runner
+FROM nginx:alpine AS runner
 
-WORKDIR /app
+# Copiar arquivos buildados do Vite
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-ENV NODE_ENV=production
+# Copiar configuração do nginx para SPA (react-router)
+RUN echo 'server { \
+    listen 80; \
+    server_name _; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-# Criar usuário não-root
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+EXPOSE 80
 
-# Copiar arquivos necessários do builder
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-
-# Copiar standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-CMD ["node", "server.js"]
+# Substituir variáveis de ambiente no index.html em runtime (se necessário)
+# Isso permite mudar a API URL sem rebuild
+CMD sh -c 'sed -i "s|NEXT_PUBLIC_API_URL_PLACEHOLDER|${NEXT_PUBLIC_API_URL:-http://localhost:8000}|g" /usr/share/nginx/html/index.html && nginx -g "daemon off;"'
 

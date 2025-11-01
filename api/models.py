@@ -13,6 +13,7 @@ class PacketRecord(Base):
     t = Column(Float, nullable=False)  # temperatura
     h = Column(Float, nullable=False)  # umidade
     g = Column(Float, nullable=False)  # gas
+    solo = Column(Float, nullable=False, default=0.0)  # solo
     device_id = Column(String, nullable=False)
     timestamp = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

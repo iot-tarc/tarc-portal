@@ -36,6 +36,12 @@ class HumidityData(BaseModel):
     descricao: str = Field(default="")
 
 
+class SoloData(BaseModel):
+    solo: float = Field(default=0.0)
+    device_id: str = Field(default="")
+    descricao: str = Field(default="")
+
+
 # Cria as tabelas no banco de dados
 Base.metadata.create_all(bind=engine)
 
@@ -66,6 +72,7 @@ def read_packet_info(data: PacketData, db: Session = Depends(get_db)):
         t=data.t,
         h=data.h,
         g=data.g,
+        solo=0.0,
         device_id=data.device_id,
     )
 
@@ -98,6 +105,7 @@ def read_gas_info(data: GasData, db: Session = Depends(get_db)):
         t=0.0,
         h=0.0,
         g=data.gas,
+        solo=0.0,
         device_id=data.device_id,
     )
 
@@ -125,6 +133,7 @@ def read_temperature_info(data: TemperatureData, db: Session = Depends(get_db)):
         t=data.temperatura,
         h=0.0,
         g=0.0,
+        solo=0.0,
         device_id=data.device_id,
     )
     db.add(packet_record)
@@ -141,6 +150,33 @@ def read_temperature_info(data: TemperatureData, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/solo")
+def read_solo_info(data: SoloData, db: Session = Depends(get_db)):
+    # Cria um novo registro no banco de dados
+    packet_record = PacketRecord(
+        fluxo=0.0,
+        pulso=0,
+        sensor=0,
+        t=0.0,
+        h=0.0,
+        g=0.0,
+        solo=data.solo,
+        device_id=data.device_id,
+    )
+    db.add(packet_record)
+    db.commit()
+    db.refresh(packet_record)
+
+    print(f"Saved solo: {data}")
+
+    return {
+        "id": packet_record.id,
+        "solo": data.solo,
+        "device_id": data.device_id,
+        "timestamp": packet_record.timestamp.isoformat(),
+    }
+
+
 @app.post("/umidade")
 def read_humidity_info(data: HumidityData, db: Session = Depends(get_db)):
     # Cria um novo registro no banco de dados
@@ -151,6 +187,7 @@ def read_humidity_info(data: HumidityData, db: Session = Depends(get_db)):
         t=0.0,
         h=data.umidade,
         g=0.0,
+        solo=0.0,
         device_id=data.device_id,
     )
     db.add(packet_record)
@@ -211,6 +248,14 @@ def get_combined_last_readings(device_id: str, db: Session):
         .first()
     )
 
+    # Buscar última leitura de solo (solo > 0)
+    last_solo = (
+        db.query(PacketRecord)
+        .filter(PacketRecord.device_id == device_id, PacketRecord.solo > 0)
+        .order_by(PacketRecord.timestamp.desc())
+        .first()
+    )
+
     # Buscar última atualização de qualquer tipo para determinar status
     last_any = (
         db.query(PacketRecord)
@@ -227,6 +272,7 @@ def get_combined_last_readings(device_id: str, db: Session):
         "t": last_temp.t if last_temp else 0.0,
         "h": last_humidity.h if last_humidity else 0.0,
         "g": last_gas.g if last_gas else 0.0,
+        "solo": last_solo.solo if last_solo else 0.0,
         "last_timestamp": last_any.timestamp if last_any else None,
     }
 
@@ -286,6 +332,7 @@ def get_devices(db: Session = Depends(get_db)):
                     "t": combined["t"],
                     "h": combined["h"],
                     "g": combined["g"],
+                    "solo": combined["solo"],
                 },
             }
         )
@@ -331,6 +378,7 @@ def get_device(device_id: str, db: Session = Depends(get_db)):
             "t": combined["t"],
             "h": combined["h"],
             "g": combined["g"],
+            "solo": combined["solo"],
         },
     }
 
@@ -409,6 +457,7 @@ def get_device_readings(
                 "fluxo": 0.0,
                 "pulso": 0,
                 "sensor": 0,
+                "solo": 0.0,
             }
 
         # Combinar valores (usar o último valor não-zero de cada tipo)
@@ -424,6 +473,8 @@ def get_device_readings(
             grouped[interval_start]["pulso"] = reading.pulso
         if reading.sensor > 0:
             grouped[interval_start]["sensor"] = reading.sensor
+        if reading.solo > 0:
+            grouped[interval_start]["solo"] = reading.solo
 
         # Atualizar timestamp para o mais recente do intervalo
         if timestamp > grouped[interval_start]["timestamp"]:
@@ -450,6 +501,7 @@ def get_device_readings(
                 "fluxo": data["fluxo"],
                 "pulso": data["pulso"],
                 "sensor": data["sensor"],
+                "solo": data["solo"],
             }
         )
 

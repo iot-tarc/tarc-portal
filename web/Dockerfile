@@ -11,7 +11,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copiar código fonte
 COPY . .

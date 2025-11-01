@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   
   // Outras configurações úteis
   reactStrictMode: true,
+  
+  // Configuração para Docker (output standalone)
+  output: "standalone",
 };
 
 export default nextConfig;

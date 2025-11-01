@@ -17,6 +17,45 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - tarc-network
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: tarc_api
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tarc_db
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tarc-network
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: tarc_web
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - tarc-network
+
+networks:
+  tarc-network:
+    driver: bridge
 
 volumes:
   postgres_data:

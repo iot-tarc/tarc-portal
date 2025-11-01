@@ -3,7 +3,17 @@ import type { Device } from "./mock-data"
 // Re-exportar tipos para uso externo
 export type { Device, SensorReading } from "./mock-data"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://10.13.22.191:8000"
+// URL da API - deve ser configurada via variável de ambiente
+// Em desenvolvimento local: http://localhost:8000
+// Em Docker/produção: http://localhost:8000 ou http://seu-servidor:8000
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.warn(
+    "⚠️ NEXT_PUBLIC_API_URL não configurada, usando padrão:",
+    API_URL
+  )
+}
 
 export interface HistoricalReading {
   timestamp: string

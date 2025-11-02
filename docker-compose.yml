@@ -5,7 +5,6 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: tarc_db
     ports:
       - "5432:5432"
     volumes:
@@ -24,7 +23,7 @@ services:
       dockerfile: Dockerfile
     container_name: tarc_api
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tarc_db
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
     ports:
       - "${API_PORT:-8001}:8000"
     depends_on:

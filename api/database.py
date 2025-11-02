@@ -9,8 +9,9 @@ load_dotenv()
 
 # Configuração da URL do banco de dados
 # Formato: postgresql://usuario:senha@host:porta/nome_do_banco
+# Usando o banco padrão 'postgres' que sempre existe
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/tarc_db"
+    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres"
 )
 
 # Cria o engine do SQLAlchemy

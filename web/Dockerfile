@@ -4,8 +4,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Argumento para URL da API (usado no build-time)
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ARG VITE_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_API_URL=http://localhost:8001
+ARG VITE_API_URL=http://localhost:8001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
@@ -42,5 +42,5 @@ EXPOSE 80
 
 # Substituir variáveis de ambiente no index.html em runtime (se necessário)
 # Isso permite mudar a API URL sem rebuild
-CMD sh -c 'sed -i "s|NEXT_PUBLIC_API_URL_PLACEHOLDER|${NEXT_PUBLIC_API_URL:-http://localhost:8000}|g" /usr/share/nginx/html/index.html && nginx -g "daemon off;"'
+CMD sh -c 'sed -i "s|NEXT_PUBLIC_API_URL_PLACEHOLDER|${NEXT_PUBLIC_API_URL:-http://localhost:8001}|g" /usr/share/nginx/html/index.html && nginx -g "daemon off;"'
 

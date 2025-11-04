@@ -42,6 +42,13 @@ class SoloData(BaseModel):
     descricao: str = Field(default="")
 
 
+class FluxoData(BaseModel):
+    fluxo: float = Field(default=0.0)
+    pulso: int = Field(default=0)
+    device_id: str = Field(default="")
+    descricao: str = Field(default="")
+
+
 # Cria as tabelas no banco de dados
 Base.metadata.create_all(bind=engine)
 
@@ -172,6 +179,34 @@ def read_solo_info(data: SoloData, db: Session = Depends(get_db)):
     return {
         "id": packet_record.id,
         "solo": data.solo,
+        "device_id": data.device_id,
+        "timestamp": packet_record.timestamp.isoformat(),
+    }
+
+
+@app.post("/fluxo")
+def read_fluxo(data: FluxoData, db: Session = Depends(get_db)):
+    # Cria um novo registro no banco de dados
+    packet_record = PacketRecord(
+        fluxo=data.fluxo,
+        pulso=data.pulso,
+        sensor=0,
+        t=0.0,
+        h=0.0,
+        g=0.0,
+        solo=0.0,
+        device_id=data.device_id,
+    )
+    db.add(packet_record)
+    db.commit()
+    db.refresh(packet_record)
+
+    print(f"Saved fluxo: {data}")
+
+    return {
+        "id": packet_record.id,
+        "fluxo": data.fluxo,
+        "pulso": data.pulso,
         "device_id": data.device_id,
         "timestamp": packet_record.timestamp.isoformat(),
     }

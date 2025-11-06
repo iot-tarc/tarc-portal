@@ -11,7 +11,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from database import Base
 
 # Importar models para que o Alembic possa detectá-los
+from models.device import Device  # noqa: F401
 from models.packet_record import PacketRecord  # noqa: F401
+from models.sensor_reading import SensorReading  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from database import get_db
 from fastapi import APIRouter, Depends
 from schemas.packet import (
@@ -33,7 +35,7 @@ def create_packet(data: PacketData, db: Session = Depends(get_db)):
     print(f"Saved packet: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "data": data.fluxo,
         "pulso": data.pulso,
         "sensor": data.sensor,
@@ -41,7 +43,9 @@ def create_packet(data: PacketData, db: Session = Depends(get_db)):
         "umidade": data.h,
         "gas": data.g,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }
 
 
@@ -63,10 +67,12 @@ def create_gas(data: GasData, db: Session = Depends(get_db)):
     print(f"Saved gas: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "gas": data.gas,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }
 
 
@@ -88,10 +94,12 @@ def create_temperature(data: TemperatureData, db: Session = Depends(get_db)):
     print(f"Saved temperature: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "temperatura": data.temperatura,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }
 
 
@@ -113,10 +121,12 @@ def create_solo(data: SoloData, db: Session = Depends(get_db)):
     print(f"Saved solo: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "solo": data.solo,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }
 
 
@@ -138,11 +148,13 @@ def create_fluxo(data: FluxoData, db: Session = Depends(get_db)):
     print(f"Saved fluxo: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "fluxo": data.fluxo,
         "pulso": data.pulso,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }
 
 
@@ -164,8 +176,10 @@ def create_humidity(data: HumidityData, db: Session = Depends(get_db)):
     print(f"Saved humidity: {data}")
 
     return {
-        "id": packet_record.id,
+        "id": packet_record["id"],
         "umidade": data.umidade,
         "device_id": data.device_id,
-        "timestamp": packet_record.timestamp.isoformat(),
+        "timestamp": packet_record["timestamp"].isoformat()
+        if isinstance(packet_record["timestamp"], datetime)
+        else packet_record["timestamp"],
     }

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from models.packet_record import PacketRecord
+from models.device import Device
+from models.sensor_reading import SensorReading
 from sqlalchemy.orm import Session
 
 from services.packet_service import PacketService
@@ -13,29 +14,27 @@ class DeviceService:
     def get_all_devices(db: Session) -> list[dict]:
         """
         Retorna lista de todos os dispositivos com suas últimas leituras combinadas.
+        Usa a nova estrutura (Device + SensorReading).
         """
-        # Obter lista única de device_ids
-        device_ids = (
-            db.query(PacketRecord.device_id)
-            .distinct()
-            .order_by(PacketRecord.device_id)
-            .all()
-        )
+        # Obter todos os dispositivos
+        devices = db.query(Device).order_by(Device.device_uid).all()
 
         result = []
-        for (device_id,) in device_ids:
-            combined, last_any = PacketService.get_combined_last_readings(device_id, db)
+        for device in devices:
+            combined, last_timestamp = PacketService.get_combined_last_readings(
+                device.device_uid, db
+            )
 
-            if not last_any:
+            if not last_timestamp:
                 continue
 
             # Determinar status baseado na última atualização
             now = (
-                datetime.now(last_any.timestamp.tzinfo)
-                if last_any.timestamp.tzinfo
+                datetime.now(last_timestamp.tzinfo)
+                if last_timestamp.tzinfo
                 else datetime.now()
             )
-            time_diff = now - last_any.timestamp
+            time_diff = now - last_timestamp
             is_online = time_diff < timedelta(minutes=5)
 
             # Formatar última atualização
@@ -43,10 +42,11 @@ class DeviceService:
 
             result.append(
                 {
-                    "id": device_id,
-                    "name": f"Sensor {device_id}",
+                    "id": device.device_uid,
+                    "name": f"Sensor {device.device_uid}",
                     "status": "online" if is_online else "offline",
-                    "location": f"Dispositivo {device_id}",
+                    "location": device.description
+                    or f"Dispositivo {device.device_uid}",
                     "lastUpdate": last_update,
                     "lastReading": {
                         "fluxo": combined["fluxo"],
@@ -66,36 +66,37 @@ class DeviceService:
     def get_device_by_id(device_id: str, db: Session) -> dict | None:
         """
         Retorna os detalhes de um dispositivo específico, incluindo a última leitura combinada.
+        Usa a nova estrutura (Device + SensorReading).
         """
-        # Verificar se o dispositivo existe
-        device_exists = (
-            db.query(PacketRecord).filter(PacketRecord.device_id == device_id).first()
-        )
+        # Buscar dispositivo
+        device = db.query(Device).filter(Device.device_uid == device_id).first()
 
-        if not device_exists:
+        if not device:
             return None
 
         # Obter leituras combinadas
-        combined, last_any = PacketService.get_combined_last_readings(device_id, db)
+        combined, last_timestamp = PacketService.get_combined_last_readings(
+            device_id, db
+        )
 
-        if not last_any:
+        if not last_timestamp:
             return None
 
         # Determinar status
         now = (
-            datetime.now(last_any.timestamp.tzinfo)
-            if last_any.timestamp.tzinfo
+            datetime.now(last_timestamp.tzinfo)
+            if last_timestamp.tzinfo
             else datetime.now()
         )
-        time_diff = now - last_any.timestamp
+        time_diff = now - last_timestamp
         is_online = time_diff < timedelta(minutes=5)
 
         return {
-            "id": device_id,
-            "name": f"Sensor {device_id}",
+            "id": device.device_uid,
+            "name": f"Sensor {device.device_uid}",
             "status": "online" if is_online else "offline",
-            "location": f"Dispositivo {device_id}",
-            "lastUpdate": last_any.timestamp.isoformat(),
+            "location": device.description or f"Dispositivo {device.device_uid}",
+            "lastUpdate": last_timestamp.isoformat(),
             "lastReading": {
                 "fluxo": combined["fluxo"],
                 "pulso": combined["pulso"],
@@ -116,17 +117,16 @@ class DeviceService:
         """
         Retorna histórico de leituras de um dispositivo para um período específico.
         Combina leituras do mesmo intervalo de tempo para mostrar todos os valores juntos.
+        Usa a nova estrutura (Device + SensorReading).
         """
-        # Verificar se o dispositivo existe
-        device_exists = (
-            db.query(PacketRecord).filter(PacketRecord.device_id == device_id).first()
-        )
-        if not device_exists:
+        # Buscar dispositivo
+        device = db.query(Device).filter(Device.device_uid == device_id).first()
+        if not device:
             return None
 
         # Obter uma leitura para verificar o timezone do banco
         sample = (
-            db.query(PacketRecord).filter(PacketRecord.device_id == device_id).first()
+            db.query(SensorReading).filter(SensorReading.device_id == device.id).first()
         )
 
         # Calcular período baseado no time_range
@@ -150,17 +150,28 @@ class DeviceService:
 
         # Query para obter leituras no período
         readings = (
-            db.query(PacketRecord)
+            db.query(SensorReading)
             .filter(
-                PacketRecord.device_id == device_id,
-                PacketRecord.timestamp >= start_time,
+                SensorReading.device_id == device.id,
+                SensorReading.timestamp >= start_time,
             )
-            .order_by(PacketRecord.timestamp.asc())
+            .order_by(SensorReading.timestamp.asc())
             .all()
         )
 
         # Agrupar leituras por intervalo de tempo e combinar valores
         grouped = {}
+
+        # Mapear tipos de sensor para chaves do formato antigo
+        sensor_type_map = {
+            "temperatura": "t",
+            "umidade": "h",
+            "gas": "g",
+            "fluxo": "fluxo",
+            "pulso": "pulso",
+            "sensor": "sensor",
+            "solo": "solo",
+        }
 
         for reading in readings:
             # Calcular o intervalo (normalizar timestamp para o início do intervalo)
@@ -183,21 +194,13 @@ class DeviceService:
                     "solo": 0.0,
                 }
 
-            # Combinar valores (usar o último valor não-zero de cada tipo)
-            if reading.t > 0:
-                grouped[interval_start]["t"] = reading.t
-            if reading.h > 0:
-                grouped[interval_start]["h"] = reading.h
-            if reading.g > 0:
-                grouped[interval_start]["g"] = reading.g
-            if reading.fluxo > 0:
-                grouped[interval_start]["fluxo"] = reading.fluxo
-            if reading.pulso > 0:
-                grouped[interval_start]["pulso"] = reading.pulso
-            if reading.sensor > 0:
-                grouped[interval_start]["sensor"] = reading.sensor
-            if reading.solo > 0:
-                grouped[interval_start]["solo"] = reading.solo
+            # Combinar valores (usar o último valor de cada tipo no intervalo)
+            key = sensor_type_map.get(reading.sensor_type)
+            if key:
+                if reading.sensor_type in ["pulso", "sensor"]:
+                    grouped[interval_start][key] = int(reading.value)
+                else:
+                    grouped[interval_start][key] = reading.value
 
             # Atualizar timestamp para o mais recente do intervalo
             if timestamp > grouped[interval_start]["timestamp"]:
@@ -235,16 +238,12 @@ class DeviceService:
         """
         Retorna estatísticas agregadas de todos os dispositivos.
         Usa leituras combinadas para cálculos mais precisos.
+        Usa a nova estrutura (Device + SensorReading).
         """
-        # Obter lista única de device_ids
-        device_ids = (
-            db.query(PacketRecord.device_id)
-            .distinct()
-            .order_by(PacketRecord.device_id)
-            .all()
-        )
+        # Obter todos os dispositivos
+        devices = db.query(Device).all()
 
-        if not device_ids:
+        if not devices:
             return {
                 "totalDevices": 0,
                 "onlineDevices": 0,
@@ -261,19 +260,21 @@ class DeviceService:
         devices_with_temp = 0
         devices_with_humidity = 0
 
-        for (device_id,) in device_ids:
-            combined, last_any = PacketService.get_combined_last_readings(device_id, db)
+        for device in devices:
+            combined, last_timestamp = PacketService.get_combined_last_readings(
+                device.device_uid, db
+            )
 
-            if not last_any:
+            if not last_timestamp:
                 continue
 
             # Verificar se está online
-            if last_any.timestamp.tzinfo:
-                device_now = datetime.now(last_any.timestamp.tzinfo)
+            if last_timestamp.tzinfo:
+                device_now = datetime.now(last_timestamp.tzinfo)
             else:
                 device_now = now
 
-            time_diff = device_now - last_any.timestamp
+            time_diff = device_now - last_timestamp
             if time_diff < timedelta(minutes=5):
                 online_count += 1
 
@@ -286,7 +287,7 @@ class DeviceService:
                 total_humidity += combined["h"]
                 devices_with_humidity += 1
 
-        total_devices = len(device_ids)
+        total_devices = len(devices)
         avg_temp = total_temp / devices_with_temp if devices_with_temp > 0 else 0.0
         avg_humidity = (
             total_humidity / devices_with_humidity if devices_with_humidity > 0 else 0.0

@@ -44,7 +44,16 @@ docker-compose down
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
+- **Backend API Docs**: http://localhost:8000/docs (Swagger UI)
 - **PostgreSQL**: localhost:5432
+
+### Endpoints Principais
+
+- `GET /devices` - Lista todos os dispositivos
+- `GET /devices/{device_id}` - Detalhes de um dispositivo
+- `POST /webhook/chirpstack` - Webhook para eventos do ChirpStack
+- `GET /chirpstack/events` - Lista eventos do ChirpStack
+- `GET /chirpstack/stats` - Estatísticas dos eventos
 
 ## Variáveis de Ambiente
 
@@ -89,6 +98,28 @@ docker-compose exec api bash
 docker-compose exec web sh
 ```
 
+## Webhook ChirpStack
+
+O sistema implementa um webhook completo para receber eventos do ChirpStack (uplink, join, log, etc.).
+
+**Documentação completa**: Ver `api/WEBHOOK_CHIRPSTACK.md`
+
+### Configuração Rápida
+
+1. No ChirpStack, vá em **Applications** > [Sua aplicação] > **Integrations**
+2. Adicione uma integração HTTP com a URL:
+   ```
+   http://seu-servidor:8000/webhook/chirpstack
+   ```
+3. Selecione os eventos que deseja receber (Uplink, Join, Log, etc.)
+
+### Testar o Webhook
+
+```bash
+cd api
+python test_webhook.py
+```
+
 ## Produção
 
 Para produção, ajuste:
@@ -96,3 +127,4 @@ Para produção, ajuste:
 2. Senhas do PostgreSQL
 3. URLs da API no frontend
 4. Configurações de rede/firewall conforme necessário
+5. URL do webhook no ChirpStack

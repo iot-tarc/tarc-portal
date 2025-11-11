@@ -1,3 +1,4 @@
+from controllers.chirpstack_controller import router as chirpstack_router
 from controllers.device_controller import router as device_router
 from controllers.packet_controller import router as packet_router
 from database import Base, engine
@@ -22,6 +23,7 @@ app.add_middleware(
 # Incluir routers
 app.include_router(packet_router)
 app.include_router(device_router)
+app.include_router(chirpstack_router)
 
 
 @app.get("/")
